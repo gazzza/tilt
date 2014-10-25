@@ -19,6 +19,27 @@ class Particle(object):
     def surface_area(self):
         return 4*np.pi*self.R_o**2*self.geometric_aspect
 
+class AreaData(object):
+    def __init__(self,path):
+        self.file = path
+        self.data = np.genfromtxt(self.file)
+
+    @property
+    def areas(self):
+        return self.data[:,1]
+    
+    @property
+    def _angles(self):
+        return self.data[:,0]
+
+    
+    def tilt_angles(self,rad=False):
+        if rad:
+            return np.deg2rad(self._angles)
+        else:
+            return self._angles
+
+    
 
 class AnalyticalTiltModel(object):
 
@@ -39,19 +60,6 @@ class AnalyticalTiltModel(object):
         def wrapper(theta):
             return free_energy_func(theta) - free_energy_func(angle)
         return wrapper
-        
-class Data(object):
-    def __init__(self,path):
-        self.file = path
-        self.data = np.genfromtxt(self.file)
-
-    @property
-    def fields(self):
-        return self.data[:,0]
-
-    @property
-    def tilt_angles(self):
-        return self.data[:,1]
 
 if __name__=="__main__":
 
@@ -71,5 +79,5 @@ if __name__=="__main__":
     p2 = Particle(2.0,5.0)
     
 
-    d = Data('1p.txt')
+    d = AreaData('1p.txt')
     
