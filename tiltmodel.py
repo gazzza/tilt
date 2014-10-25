@@ -40,8 +40,18 @@ class AnalyticalTiltModel(object):
             return free_energy_func(theta) - free_energy_func(angle)
         return wrapper
         
-    
+class Data(object):
+    def __init__(self,path):
+        self.file = path
+        self.data = np.genfromtxt(self.file)
 
+    @property
+    def fields(self):
+        return self.data[:,0]
+
+    @property
+    def tilt_angles(self):
+        return self.data[:,1]
 
 if __name__=="__main__":
 
@@ -53,7 +63,13 @@ if __name__=="__main__":
     tiltmodel = AnalyticalTiltModel(p,1)
 
     b_field = 0
-    for b_field in [0,1,2,3,4,5]:
-        free_energy = tiltmodel.normalised_free_energy(b_field)
-        plt.plot(theta,free_energy(theta),'ro')
-    plt.show()
+#     for b_field in [0,1,2,3,4,5,6,7]:
+#         free_energy = tiltmodel.relative_normalised_free_energy(b_field,np.pi/2)
+#         plt.plot(theta,free_energy(theta),'--')
+#     plt.show()
+
+    p2 = Particle(2.0,5.0)
+    
+
+    d = Data('1p.txt')
+    
