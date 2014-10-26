@@ -29,9 +29,11 @@ class Interface(object):
     
 
 class AreaData(object):
-    def __init__(self,path):
+    def __init__(self,path,particle,interface):
         self.file = path
         self.data = np.genfromtxt(self.file)
+        self.particle = particle
+        self.interface = interface
 
     @property
     def areas(self):
@@ -47,18 +49,19 @@ class AreaData(object):
         else:
             return self._angles
 
-    def area_removed(self,interface):
-        return interface.area - self.areas
+    @property
+    def area_removed(self):
+        return self.interface.area - self.areas
 
-    def area_removed_norm(self,particle,interface):
-        norm =  particle.surface_area*interface.gamma
-        return self.area_removed(interface)/norm
+    @property
+    def area_removed_norm(self):
+        norm = self.interface.gamma*self.particle.surface_area 
+        return self.area_removed/norm
 
     def poly_area(self,order):
-        p_coeffs = np.polyfit(self.tilt_angles(rad=True),self.normalised_areas,order)
+        p_coeffs = np.polyfit(self.tilt_angles(rad=True),self.area_removed_norm,order)
         return np.poly1d(p_coeffs)
         
-
 class AnalyticalTiltModel(object):
 
     def __init__(self,particle,interface):
@@ -99,10 +102,11 @@ if __name__=="__main__":
     p2 = Particle(2.0,5.0)
     
 
-    d = AreaData('1p.txt')
+    d = AreaData('1p.txt',p,I)
     
-    A_rm = d.area_removed_norm(p,I)
+    A_rm = d.poly_area(6)
 
-    plt.plot(theta,A_rm(theta),'ro')
+    plt.plot(d.tilt_angles(),d.area_removed_norm,'ro')
+    plt.plot(np.rad2deg(theta),A_rm(theta),'b--')
     plt.show()
 
