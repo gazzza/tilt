@@ -61,7 +61,28 @@ class AreaData(object):
     def poly_area(self,order):
         p_coeffs = np.polyfit(self.tilt_angles(rad=True),self.area_removed_norm,order)
         return np.poly1d(p_coeffs)
+
+
+    def return_fit_params(self,fit_function):
+        x = self.tilt_angles(rad=True)
+        y = self.area_removed_norm
+        fit_params,covmat = optimize.curve_fit(fit_function,x,y,maxfev=200000)
+        return fit_params
+
+    @staticmethod
+    def sin_func(theta,Ro,Rp,c):
+        return c + np.pi*Rp*Ro**2/np.sqrt(Ro**2*np.cos(theta)**2 + Rp**2*np.sin(theta)**2)
+
+    def sin_area(self,Ro,Rp,c):
+        def wrapper(theta):
+            return AreaData.sin_func(theta,Ro,Rp,c)
+        return wrapper
         
+    @property
+    def sin_area_model(self):
+        (Ro,Rp,c) = self.return_fit_params(AreaData.sin_func)
+        return self.sin_area(Ro,Rp,c)
+
 class AnalyticalTiltModel(object):
 
     def __init__(self,particle,interface):
