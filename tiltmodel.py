@@ -4,7 +4,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.optimize as optimize
 
-
 class Particle(object):
     def __init__(self,aspect_ratio,short_radius):
         self.alpha = aspect_ratio
@@ -26,8 +25,6 @@ class Interface(object):
         self.area = 2*self.x*self.y
         self.gamma = surface_tension
         
-    
-
 class AreaData(object):
     def __init__(self,path,particle,interface):
         self.file = path
@@ -54,14 +51,16 @@ class AreaData(object):
         return self.interface.area - self.areas
 
     @property
+    def norm(self):
+        return self.interface.gamma*self.particle.surface_area 
+
+    @property
     def area_removed_norm(self):
-        norm = self.interface.gamma*self.particle.surface_area 
-        return self.area_removed/norm
+        return self.area_removed/self.norm
 
     def poly_area(self,order):
         p_coeffs = np.polyfit(self.tilt_angles(rad=True),self.area_removed_norm,order)
         return np.poly1d(p_coeffs)
-
 
     def return_fit_params(self,fit_function):
         x = self.tilt_angles(rad=True)
@@ -83,6 +82,31 @@ class AreaData(object):
         (Ro,Rp,c) = self.return_fit_params(AreaData.sin_func)
         return self.sin_area(Ro,Rp,c)
 
+    def empirical_free_energy(self,area_model_function,unnormalised_b_field):
+        B_norm = unnormalised_b_field/self.norm
+        def wrapper(theta):
+            return -area_model_function(theta) - B_norm*np.sin(theta)
+        return wrapper
+
+    def relative_empirical_free_energy(self,area_model_function,unnormalised_b_field,rel_angle):
+        B_norm = unnormalised_b_field/self.norm
+        free_energy_func = self.empirical_free_energy(area_model_function,unnormalised_b_field)
+        def wrapper(theta):
+            return free_energy_func(theta) - free_energy_func(rel_angle)
+        return wrapper
+
+    def _invert_closure(self,fn):
+        def wrapper(theta):
+            return -fn(theta)
+        return wrapper
+
+    def minimize_free_energy(self,free_energy_func,guess):
+        F_theta = free_energy_func
+        F_min = optimize.minimize(F_theta,guess)
+        min_theta = F_min.x[0]
+        return min_theta
+
+
 class AnalyticalTiltModel(object):
 
     def __init__(self,particle,interface):
@@ -97,10 +121,10 @@ class AnalyticalTiltModel(object):
             return -(pref_term*sqrt_term + field_term)
         return closure
 
-    def relative_normalised_free_energy(self,unnormalised_b_field,angle):
+    def relative_normalised_free_energy(self,unnormalised_b_field,rel_angle):
         free_energy_func = self.normalised_free_energy(unnormalised_b_field)
         def wrapper(theta):
-            return free_energy_func(theta) - free_energy_func(angle)
+            return free_energy_func(theta) - free_energy_func(rel_angle)
         return wrapper
 
 if __name__=="__main__":
