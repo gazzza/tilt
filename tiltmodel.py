@@ -58,7 +58,7 @@ class AreaData(object):
     def area_removed_norm(self):
         return self.area_removed/self.norm
 
-    def poly_area(self,order):
+    def poly_area_model(self,order):
         p_coeffs = np.polyfit(self.tilt_angles(rad=True),self.area_removed_norm,order)
         return np.poly1d(p_coeffs)
 
@@ -106,7 +106,28 @@ class AreaData(object):
         min_theta = F_min.x[0]
         return min_theta
 
+    def fit_area_derivative(self,area_model,sample_dist,order):
+        theta = np.arange(0,np.pi/2,sample_dist)
+        y = np.gradient(area_model(theta),sample_dist)
+        p_coeffs = np.polyfit(theta,y,order)
+        return np.poly1d(p_coeffs)
 
+    def free_energy_deriv(self,area_model_deriv,unnormalised_b_field):
+        def B(theta):
+            return -self.interface.gamma*area_model_deriv(theta) - unnormalised_b_field/self.norm*np.cos(theta)
+        return B
+
+    def minimise_free_energy_deriv(self,free_energy_deriv,guess):
+        min = optimize.fsolve(free_energy_deriv,guess,full_output=True)
+
+        if min[2] == 1:
+            min_angle = min[0]
+        else:
+            min_angle = None
+        return min_angle
+
+
+        
 class AnalyticalTiltModel(object):
 
     def __init__(self,particle,interface):
