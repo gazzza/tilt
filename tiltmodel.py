@@ -47,6 +47,10 @@ class AreaData(object):
             return self._angles
 
     @property
+    def M(self):
+        return np.sin(self.tilt_angles(rad=True))
+
+    @property
     def area_removed(self):
         return self.interface.area - self.areas
 
@@ -60,6 +64,10 @@ class AreaData(object):
 
     def poly_area_model(self,order):
         p_coeffs = np.polyfit(self.tilt_angles(rad=True),self.area_removed_norm,order)
+        return np.poly1d(p_coeffs)
+
+    def magnetisation_poly_area_model(self,order):
+        p_coeffs = np.polyfit(self.M,self.area_removed_norm,order)
         return np.poly1d(p_coeffs)
 
     def return_fit_params(self,fit_function):
@@ -121,7 +129,7 @@ class AreaData(object):
         min = optimize.fsolve(free_energy_deriv,guess,full_output=True)
 
         if min[2] == 1:
-            min_angle = min[0]
+            min_angle = min[0][0]
         else:
             min_angle = None
         return min_angle
@@ -148,31 +156,55 @@ class AnalyticalTiltModel(object):
             return free_energy_func(theta) - free_energy_func(rel_angle)
         return wrapper
 
+    def normalised_free_energy_magnetisation(self,unnormalised_b_field):
+        def closure(M):
+            pref_term  = self.p.alpha/(4*self.p.geometric_aspect)
+            sqrt_term  = 1/np.sqrt(1 + M**2*(self.p.alpha**2 - 1))
+            field_term = unnormalised_b_field*M/(self.p.surface_area*self.I.gamma)
+            return -(pref_term*sqrt_term + field_term)
+        return closure
+        
+    def relative_normalised_free_energy_magnetisation(self,unnormalised_b_field,rel_mag):
+        free_energy_func = self.normalised_free_energy_magnetisation(unnormalised_b_field)
+        def wrapper(M):
+            return free_energy_func(M) - free_energy_func(rel_mag)
+        return wrapper
+
+    def minimize_free_energy(self,free_energy_func,guess):
+        F_min = optimize.minimize(free_energy_func,guess)
+        min_M = F_min.x[0]
+        return min_M
+        
+    @property
+    def norm(self):
+        return self.p.surface_area*self.I.gamma
+
 if __name__=="__main__":
 
-    p = Particle(3.0,1.0)
-    I = Interface(40,20,1)
+    mins = []
+    p = Particle(2.0,1.0)
+    I = Interface(1,1,1)
 
     print p.surface_area
 
-    theta = np.arange(np.rad2deg(0),np.deg2rad(90),0.01)
+    M = np.arange(0,1.01,0.01)
+    print M
 
-    tiltmodel = AnalyticalTiltModel(p,1)
+    tiltmodel = AnalyticalTiltModel(p,I)
 
-    b_field = 0
-#     for b_field in [0,1,2,3,4,5,6,7]:
-#         free_energy = tiltmodel.relative_normalised_free_energy(b_field,np.pi/2)
-#         plt.plot(theta,free_energy(theta),'--')
+    B = [0,1,2,3,4,5,6,7]
+    B = np.arange(0,7,0.1)
+
+    for b_field in B:
+        free_energy = tiltmodel.relative_normalised_free_energy_magnetisation(b_field,1.0)
+        mins.append(tiltmodel.minimize_free_energy(free_energy,0.0))
+
+#         plt.plot(M,free_energy(M),'--')
+#     plt.grid()
 #     plt.show()
 
-    p2 = Particle(2.0,5.0)
+    mins = np.array(mins)
+    mins[np.where(mins > 1)] = 1
     
-
-    d = AreaData('1p.txt',p,I)
-    
-    A_rm = d.poly_area(6)
-
-    plt.plot(d.tilt_angles(),d.area_removed_norm,'ro')
-    plt.plot(np.rad2deg(theta),A_rm(theta),'b--')
+    plt.plot(B/tiltmodel.norm,mins,'ro')
     plt.show()
-
